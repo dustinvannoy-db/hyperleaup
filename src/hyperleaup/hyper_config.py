@@ -1,6 +1,13 @@
 from dataclasses import dataclass
 
 @dataclass
+class S3Credentials:
+  access_key_id: str
+  secret_access_key: str
+  session_token: str = None
+  region: str = None
+
+@dataclass
 class HyperFileConfig:
   """Class for changing default configurations.
       
@@ -13,3 +20,5 @@ class HyperFileConfig:
   timestamp_with_timezone: bool = False
   allow_nulls: bool = False
   convert_decimal_precision: bool = False
+  external_path: str = None
+  s3_credentials: S3Credentials = None

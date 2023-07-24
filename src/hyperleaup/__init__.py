@@ -1,2 +1,2 @@
 from .hyper_file import HyperFile
-from .hyper_config import HyperFileConfig
+from .hyper_config import HyperFileConfig, S3Credentials
