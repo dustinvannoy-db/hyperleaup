@@ -3,14 +3,14 @@ import logging
 from shutil import copyfile
 from typing import List, Any
 from hyperleaup.creation_mode import CreationMode
-from hyperleaup.hyper_config import HyperFileConfig
+from hyperleaup.hyper_config import HyperFileConfig, S3Credentials
 from pyspark.sql import DataFrame
 from pyspark.sql.types import *
 from pyspark.sql.functions import col
 from tableauhyperapi import SqlType, TableDefinition, NULLABLE, NOT_NULLABLE, TableName, HyperProcess, Telemetry, \
     Inserter, Connection, CreateMode
 from pathlib import Path
-
+from databricks.sdk.runtime import *
 
 def clean_dataframe(df: DataFrame, allow_nulls=False, convert_decimal_precision=False) -> DataFrame:
     """Replaces null or NaN values with '' and 0s"""
@@ -301,7 +301,7 @@ def copy_external_parquet_to_hyper_file(parquet_paths: list[str], name: str, tab
 
             # parquet_array = ",".join(parquet_path)
             expanded = []
-            for i in parquet_path:
+            for i in parquet_paths:
                 external_parquet_path = f"""s3_location(
                       {i},
                       access_key_id => '{s3_credentials.access_key_id}',
@@ -313,7 +313,7 @@ def copy_external_parquet_to_hyper_file(parquet_paths: list[str], name: str, tab
             external_parquet_path = f"ARRAY[{','.join(expanded)}]"
 
             copy_command = f"COPY \"Extract\".\"Extract\" from {external_parquet_path} with (format parquet)"
-            print(copy_command)
+            logging.info(f"Running copy command: {copy_command}")
             
             count = connection.execute_command(copy_command)
             logging.info(f"Copied {count} rows.")
@@ -321,11 +321,9 @@ def copy_external_parquet_to_hyper_file(parquet_paths: list[str], name: str, tab
     return hyper_database_path
 
 
-def write_parquet_to_s3(df: DataFrame, name: str, allow_nulls = False, convert_decimal_precision = False, path: str) -> str:
+def write_parquet_to_s3(df: DataFrame, name: str, allow_nulls = False, convert_decimal_precision = False, path: str = None) -> str:
     """Writes multiple Parquet files to an S3 directory (for use with copy_external_parquet_to_hyper_file)."""
-    # tmp_dir = f"/tmp/hyperleaup/{name}/"
-    # tmp_dir = "s3://one-env/dustin.vannoy@databricks.com" + tmp_dir
-    tmp_dir = path + name
+    tmp_dir = f"{path}/{name}"
     
     cleaned_df = clean_dataframe(df, allow_nulls, convert_decimal_precision) 
     
@@ -333,20 +331,10 @@ def write_parquet_to_s3(df: DataFrame, name: str, allow_nulls = False, convert_d
     cleaned_df.write \
         .mode("overwrite").parquet(tmp_dir)
     
-    # dbfs_tmp_dir = tmp_dir
-
-    # dbfs_tmp_dir = "/dbfs" + tmp_dir
-    # parquet_file = None
-    # for root_dir, dirs, files in os.walk(dbfs_tmp_dir):
-    #     for file in files:
-    #         if file.endswith(".parquet"):
-    #             parquet_file = file
-
     parquet_files = []
     for item in dbutils.fs.ls(tmp_dir):
       if item.name.endswith(".parquet"):
         parquet_files.append(item.name)
-        print("Parquet files: ", parquet_files)
 
     if parquet_files is None:
         raise FileNotFoundError(f"Parquet path '{tmp_dir}' not found on DBFS.")
@@ -355,10 +343,7 @@ def write_parquet_to_s3(df: DataFrame, name: str, allow_nulls = False, convert_d
     if not os.path.exists(f"/tmp/hyperleaup/{name}/"):
         os.makedirs(f"/tmp/hyperleaup/{name}/")
 
-    return [f"'{tmp_dir}{parquet_file}'" for parquet_file in parquet_files]
-    # return [f"'{parquet_file}'" for parquet_file in parquet_files]
-
-
+    return [f"'{tmp_dir}/{parquet_file}'" for parquet_file in parquet_files]
 
 
 class Creator:
