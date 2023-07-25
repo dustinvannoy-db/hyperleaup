@@ -295,25 +295,23 @@ def copy_external_parquet_to_hyper_file(parquet_paths: list[str], name: str, tab
             connection.catalog.create_schema(schema=table_def.table_name.schema_name)
             connection.catalog.create_table(table_definition=table_def)
 
-            # access_key_id = 'ASIA6QUVF2TJ5ZQ234SV'
-            # secret = dbutils.secrets.get(scope='db-field-eng', key='dustin-secret')
-            # session = dbutils.secrets.get(scope='db-field-eng', key='dustin-secret2')
+            session = f",session_token => '{s3_credentials.session_token}'" if s3_credentials.session_token else ""
+            region = f",region => '{s3_credentials.region}'" if s3_credentials.region is not None else ""
+            s3_detail = f"""access_key_id => '{s3_credentials.access_key_id}'
+                    ,secret_access_key => '{s3_credentials.secret_access_key}'
+                    {session}
+                    {region}"""
 
-            # parquet_array = ",".join(parquet_path)
             expanded = []
             for i in parquet_paths:
                 external_parquet_path = f"""s3_location(
                       {i},
-                      access_key_id => '{s3_credentials.access_key_id}',
-                      secret_access_key => '{s3_credentials.secret_access_key}',
-                      session_token => '{s3_credentials.session_token}',
-                      region => '{s3_credentials.region}'
+                      {s3_detail}
                   )"""
                 expanded.append(external_parquet_path)
             external_parquet_path = f"ARRAY[{','.join(expanded)}]"
 
             copy_command = f"COPY \"Extract\".\"Extract\" from {external_parquet_path} with (format parquet)"
-            logging.info(f"Running copy command: {copy_command}")
             
             count = connection.execute_command(copy_command)
             logging.info(f"Copied {count} rows.")
@@ -321,16 +319,15 @@ def copy_external_parquet_to_hyper_file(parquet_paths: list[str], name: str, tab
     return hyper_database_path
 
 
-def write_parquet_to_s3(df: DataFrame, name: str, allow_nulls = False, convert_decimal_precision = False, path: str = None) -> str:
+def write_parquet_to_s3(df: DataFrame, name: str, path: str, allow_nulls = False, convert_decimal_precision = False) -> str:
     """Writes multiple Parquet files to an S3 directory (for use with copy_external_parquet_to_hyper_file)."""
     tmp_dir = f"{path}/{name}"
-    
     cleaned_df = clean_dataframe(df, allow_nulls, convert_decimal_precision) 
     
     # write the DataFrame to path as multiple Parquet files
     cleaned_df.write \
         .mode("overwrite").parquet(tmp_dir)
-    
+ 
     parquet_files = []
     for item in dbutils.fs.ls(tmp_dir):
       if item.name.endswith(".parquet"):
@@ -420,9 +417,8 @@ class Creator:
 
             # Write Spark DataFrame to Parquet so that a file COPY can be done
             logging.info("Writing Spark DataFrame to S3...")
-            parquet_paths = write_parquet_to_s3(self.df, self.name, self.config.allow_nulls, 
-                                                  self.config.convert_decimal_precision, 
-                                                  self.config.external_path)
+            parquet_paths = write_parquet_to_s3(self.df, self.name, self.config.external_path, self.config.allow_nulls, 
+                                                  self.config.convert_decimal_precision)
 
             # Convert the Spark DataFrame schema to a Tableau `TableDefinition`
             logging.info("Generating Tableau Table Definition...")

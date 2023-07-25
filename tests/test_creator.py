@@ -199,57 +199,10 @@ class TestCreator(object):
         df = df.withColumn("age_high_precision", col("age").cast(DecimalType(38,6)))
 
         hf_config = HyperFileConfig(timestamp_with_timezone=True, allow_nulls=True, convert_decimal_precision=True)
-        creator = Creator(df, 'employees3', is_dbfs_enabled, creation_mode="Parquet", config=hf_config)
+        creator = Creator(df, 'employees2', is_dbfs_enabled, creation_mode="Parquet", config=hf_config)
         hyper_file_path = creator.create()
-        assert(hyper_file_path == "/tmp/hyperleaup/employees3/employees3.hyper")
-        tables = TestUtils.get_tables("Extract", "/tmp/hyperleaup/employees3/employees3.hyper")
+        assert(hyper_file_path == "/tmp/hyperleaup/employees2/employees2.hyper")
+        tables = TestUtils.get_tables("Extract", "/tmp/hyperleaup/employees2/employees2.hyper")
         assert(len(tables) == 1)
-        num_rows = TestUtils.get_row_count("Extract", "Extract", "/tmp/hyperleaup/employees3/employees3.hyper")
-        print(num_rows)
-        #assert(num_rows == 5)
-        return hyper_file_path
-      
-    # def test_create_large_file(self, is_dbfs_enabled=False, test_version=1):
-    #     sql = "SELECT * FROM hive_metastore.dustin_vannoy.lending_club_tableau"
-    #     version=test_version
-
-    #     df = get_spark_session().sql(sql)
-        
-    #     hf_config = HyperFileConfig(timestamp_with_timezone=True, allow_nulls=True, convert_decimal_precision=True)
-    #     creator = Creator(df, f'lending_large_{version}', is_dbfs_enabled, creation_mode="Parquet", config=hf_config)
-    #     hyper_file_path = creator.create()
-    #     # assert(hyper_file_path == f"/tmp/hyperleaup/lending_large_{version}/lending_large_{version}")
-    #     # tables = TestUtils.get_tables("Extract", f"/tmp/hyperleaup/lending_large_{version}/lending_large_{version}")
-    #     # assert(len(tables) == 1)
-    #     # num_rows = TestUtils.get_row_count("Extract", "Extract", f"/tmp/hyperleaup/lending_large_{version}/lending_large_{version}.hyper")
-    #     # print(num_rows)
-    #     #assert(num_rows == 5)
-    #     return hyper_file_path
-    
-    def test_create_large_file(self, is_dbfs_enabled=False, test_version=1):
-        sql = "SELECT * FROM hive_metastore.dustin_vannoy.lending_club_tableau"
-        version=test_version
-
-        df = get_spark_session().sql(sql)
-        
-        s3_creds = S3Credentials('ASIA6QUVF2TJXADFXU67',
-                                 dbutils.secrets.get(scope='db-field-eng', key='dustin-secret'),
-                                 dbutils.secrets.get(scope='db-field-eng', key='dustin-secret2'),
-                                 'us-west-2'
-                                )
-
-        hf_config = HyperFileConfig(timestamp_with_timezone=True, allow_nulls=True, convert_decimal_precision=True,
-                                    external_path="s3://one-env/dustin.vannoy@databricks.com",
-                                    s3_credentials=s3_creds)
-        
-        creator = Creator(df, f'lending_large_{version}', is_dbfs_enabled, creation_mode="PARQUET_S3", config=hf_config)
-        hyper_file_path = creator.create()
-        print(hyper_file_path)
-        assert(hyper_file_path == f"/tmp/hyperleaup/lending_large_{version}/lending_large_{version}.hyper")
-        tables = TestUtils.get_tables("Extract", f"/tmp/hyperleaup/lending_large_{version}/lending_large_{version}.hyper")
-        assert(len(tables) == 1)
-        num_rows = TestUtils.get_row_count("Extract", "Extract", f"/tmp/hyperleaup/lending_large_{version}/lending_large_{version}.hyper")
-        print(num_rows)
-        # assert(num_rows == 5)
-        return hyper_file_path
-
+        num_rows = TestUtils.get_row_count("Extract", "Extract", "/tmp/hyperleaup/employees2/employees2.hyper")
+        assert(num_rows == 5)
